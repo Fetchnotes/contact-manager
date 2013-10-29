@@ -38,8 +38,6 @@ public final class ContactManager extends Activity
 
     private Button mAddAccountButton;
     private ListView mContactList;
-    private boolean mShowInvisible;
-    private CheckBox mShowInvisibleControl;
 
     /**
      * Called when the activity is first created. Responsible for initializing the UI.
@@ -54,24 +52,13 @@ public final class ContactManager extends Activity
         // Obtain handles to UI objects
         mAddAccountButton = (Button) findViewById(R.id.addContactButton);
         mContactList = (ListView) findViewById(R.id.contactList);
-        mShowInvisibleControl = (CheckBox) findViewById(R.id.showInvisible);
 
-        // Initialize class properties
-        mShowInvisible = false;
-        mShowInvisibleControl.setChecked(mShowInvisible);
 
         // Register handler for UI elements
         mAddAccountButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 Log.d(TAG, "mAddAccountButton clicked");
                 launchContactAdder();
-            }
-        });
-        mShowInvisibleControl.setOnCheckedChangeListener(new OnCheckedChangeListener() {
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                Log.d(TAG, "mShowInvisibleControl changed: " + isChecked);
-                mShowInvisible = isChecked;
-                populateContactList();
             }
         });
 
@@ -106,8 +93,7 @@ public final class ContactManager extends Activity
                 ContactsContract.Contacts._ID,
                 ContactsContract.Contacts.DISPLAY_NAME
         };
-        String selection = ContactsContract.Contacts.IN_VISIBLE_GROUP + " = '" +
-                (mShowInvisible ? "0" : "1") + "'";
+        String selection = ContactsContract.Contacts.IN_VISIBLE_GROUP + " = '1'";
         String[] selectionArgs = null;
         String sortOrder = ContactsContract.Contacts.DISPLAY_NAME + " COLLATE LOCALIZED ASC";
 
