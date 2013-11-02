@@ -1,5 +1,7 @@
 package com.example.android.contactmanager;
 
+import com.kinvey.android.callback.KinveyPingCallback;
+
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
@@ -13,6 +15,7 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
+import android.widget.Toast;
 
 public class ContactManagerFragment extends Fragment {
 	
@@ -49,6 +52,17 @@ public class ContactManagerFragment extends Fragment {
         mAddAccountButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 Log.d(TAG, "mAddAccountButton clicked");
+                
+                ((ContactManagerApplication)getActivity().getApplication()).getClient()
+                		.ping(new KinveyPingCallback() {
+                    public void onFailure(Throwable t) {
+                        Toast.makeText(getActivity(), "Kinvey Ping Failed", Toast.LENGTH_LONG).show();
+                    }
+                    public void onSuccess(Boolean b) {
+                    	Toast.makeText(getActivity(), "Kinvey Ping Success", Toast.LENGTH_LONG).show();
+                    }
+                });
+                
                 launchContactAdder();
             }
         });
