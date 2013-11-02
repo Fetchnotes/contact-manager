@@ -4,8 +4,11 @@ import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
+import android.util.Log;
 
 public abstract class SingleFragmentActivity extends FragmentActivity{
+
+	public static final String TAG = "SingleFragmentActivity";
 
 	/**
      * Called to determine which fragment to inflate.
@@ -25,6 +28,7 @@ public abstract class SingleFragmentActivity extends FragmentActivity{
      */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+    	Log.d(TAG, "ActivityState: onCreate()");
         super.onCreate(savedInstanceState);
         setContentView(getLayourResId());
 

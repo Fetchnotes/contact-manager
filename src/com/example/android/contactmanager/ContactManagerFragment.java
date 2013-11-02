@@ -27,7 +27,7 @@ public class ContactManagerFragment extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState)
     {
-        Log.v(TAG, "Activity State: onCreate()");
+        Log.v(TAG, "Fragment State: onCreate()");
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
     }

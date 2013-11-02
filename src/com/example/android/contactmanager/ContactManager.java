@@ -16,11 +16,37 @@
 
 package com.example.android.contactmanager;
 
+import com.kinvey.android.Client;
+import com.kinvey.android.callback.KinveyPingCallback;
+
+import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.util.Log;
 
 public final class ContactManager extends SingleFragmentActivity
 {
 	
+	public static final String TAG = "ContactManager";
+	
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		
+		/**
+	     * Creates kinvey client for communication with backend.
+	     */
+		final Client mKinveyClient = new Client.Builder(this.getApplicationContext()).build();
+		
+		mKinveyClient.ping(new KinveyPingCallback() {
+		    public void onFailure(Throwable t) {
+		        Log.e(TAG, "Kinvey Ping Failed", t);
+		    }
+		    public void onSuccess(Boolean b) {
+		        Log.d(TAG, "Kinvey Ping Success");
+		    }
+		});
+	}
+
 	/**
      * Called to determine which fragment to inflate.
      */
