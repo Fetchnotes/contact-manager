@@ -14,6 +14,7 @@ import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.Toast;
 
@@ -23,6 +24,8 @@ public class ContactManagerFragment extends Fragment {
 
     private Button mAddAccountButton;
     private ListView mContactList;
+    private LinearLayout mProgress;
+    
     private Client mKinveyClient;
 
     /**
@@ -49,14 +52,15 @@ public class ContactManagerFragment extends Fragment {
 		// Obtain handles to UI objects
         mAddAccountButton = (Button) v.findViewById(R.id.addContactButton);
         mContactList = (ListView) v.findViewById(R.id.contactList);
+        mProgress = (LinearLayout) v.findViewById(R.id.manageContactProgress);
+        
+        // Register handler for UI elements
         mContactList.setOnItemClickListener(new OnItemClickListener() {
 			@Override
 			public void onItemClick(AdapterView<?> adapter, View v, int position, long id) {
 				contactClicked((Contact)adapter.getItemAtPosition(position));
 			}
 		});
-
-        // Register handler for UI elements
         mAddAccountButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 Log.d(TAG, "mAddAccountButton clicked");
@@ -82,7 +86,13 @@ public class ContactManagerFragment extends Fragment {
      * Populate the contact list based on account currently selected in the account spinner.
      */
     private void populateContactList() {
+    	// Reset adapter
     	mContactList.setAdapter(null);
+    	
+    	// Show progress bar
+    	mContactList.setVisibility(View.INVISIBLE);
+    	mProgress.setVisibility(View.VISIBLE);
+    	
         // Build adapter with contact entries from kinvey search
     	AsyncAppData<Contact> myevents = mKinveyClient.appData("contact", Contact.class);
     	myevents.get(new KinveyListCallback<Contact>()     {
@@ -94,6 +104,10 @@ public class ContactManagerFragment extends Fragment {
     	    ArrayAdapter<Contact> adapter = new ArrayAdapter<Contact>(getActivity(), 
     	    		android.R.layout.simple_list_item_1, results);
             mContactList.setAdapter(adapter);
+            
+            // Hide progress bar
+        	mContactList.setVisibility(View.VISIBLE);
+        	mProgress.setVisibility(View.INVISIBLE);
     	  }
     	  @Override
     	  public void onFailure(Throwable error)  { 
