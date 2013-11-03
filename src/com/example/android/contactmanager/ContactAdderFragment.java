@@ -2,11 +2,12 @@ package com.example.android.contactmanager;
 
 import java.util.ArrayList;
 import java.util.Iterator;
-import android.accounts.Account;
-import android.accounts.AccountManager;
-import android.accounts.AuthenticatorDescription;
-import android.accounts.OnAccountsUpdateListener;
-import android.content.ContentProviderOperation;
+
+import com.kinvey.android.AsyncAppData;
+import com.kinvey.android.Client;
+import com.kinvey.java.User;
+import com.kinvey.java.core.KinveyClientCallback;
+
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -23,10 +24,9 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Spinner;
 import android.widget.TextView;
-import android.widget.Toast;
 import android.widget.AdapterView.OnItemSelectedListener;
 
-public class ContactAdderFragment extends Fragment implements OnAccountsUpdateListener {
+public class ContactAdderFragment extends Fragment {
 	
 	public static final String TAG = "ContactsAdderFragment";
     public static final String ACCOUNT_NAME =
@@ -34,7 +34,7 @@ public class ContactAdderFragment extends Fragment implements OnAccountsUpdateLi
     public static final String ACCOUNT_TYPE =
             "com.example.android.contactmanager.ContactsAdder.ACCOUNT_TYPE";
 
-    private ArrayList<AccountData> mAccounts;
+    private ArrayList<User> mAccounts;
     private AccountAdapter mAccountAdapter;
     private Spinner mAccountSpinner;
     private EditText mContactEmailEditText;
@@ -45,7 +45,8 @@ public class ContactAdderFragment extends Fragment implements OnAccountsUpdateLi
     private ArrayList<Integer> mContactPhoneTypes;
     private Spinner mContactPhoneTypeSpinner;
     private Button mContactSaveButton;
-    private AccountData mSelectedAccount;
+    
+    private Client mKinveyClient;
 
     /**
      * Called when the fragment is first created. Responsible for initializing the fragment.
@@ -56,6 +57,8 @@ public class ContactAdderFragment extends Fragment implements OnAccountsUpdateLi
         Log.v(TAG, "Fragment State: onCreate()");
         super.onCreate(savedInstanceState);
         setRetainInstance(true); 
+        
+        mKinveyClient = ((ContactManagerApplication)getActivity().getApplication()).getClient();
     }
     
     /**
@@ -91,7 +94,8 @@ public class ContactAdderFragment extends Fragment implements OnAccountsUpdateLi
         mContactEmailTypes.add(ContactsContract.CommonDataKinds.Email.TYPE_OTHER);
 
         // Prepare model for account spinner
-        mAccounts = new ArrayList<AccountData>();
+        mAccounts = new ArrayList<User>();
+        mAccounts.add(mKinveyClient.user());
         mAccountAdapter = new AccountAdapter(getActivity(), mAccounts);
         mAccountSpinner.setAdapter(mAccountAdapter);
 
@@ -123,14 +127,10 @@ public class ContactAdderFragment extends Fragment implements OnAccountsUpdateLi
         mContactEmailTypeSpinner.setAdapter(adapter);
         mContactEmailTypeSpinner.setPrompt(getString(R.string.selectLabel));
 
-        // Prepare the system account manager. On registering the listener below, we also ask for
-        // an initial callback to pre-populate the account list.
-        AccountManager.get(getActivity()).addOnAccountsUpdatedListener(this, null, true);
-
         // Register handlers for UI elements
         mAccountSpinner.setOnItemSelectedListener(new OnItemSelectedListener() {
             public void onItemSelected(AdapterView<?> parent, View view, int position, long i) {
-                updateAccountSelection();
+                // No longer need to worry about this either, because we'll only have one account
             }
 
             public void onNothingSelected(AdapterView<?> parent) {
@@ -170,123 +170,34 @@ public class ContactAdderFragment extends Fragment implements OnAccountsUpdateLi
         int emailType = mContactEmailTypes.get(
                 mContactEmailTypeSpinner.getSelectedItemPosition());;
 
-        // Prepare contact creation request
-        //
-        // Note: We use RawContacts because this data must be associated with a particular account.
-        //       The system will aggregate this with any other data for this contact and create a
-        //       coresponding entry in the ContactsContract.Contacts provider for us.
-        ArrayList<ContentProviderOperation> ops = new ArrayList<ContentProviderOperation>();
-        ops.add(ContentProviderOperation.newInsert(ContactsContract.RawContacts.CONTENT_URI)
-                .withValue(ContactsContract.RawContacts.ACCOUNT_TYPE, mSelectedAccount.getType())
-                .withValue(ContactsContract.RawContacts.ACCOUNT_NAME, mSelectedAccount.getName())
-                .build());
-        ops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
-                .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
-                .withValue(ContactsContract.Data.MIMETYPE,
-                        ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
-                .withValue(ContactsContract.CommonDataKinds.StructuredName.DISPLAY_NAME, name)
-                .build());
-        ops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
-                .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
-                .withValue(ContactsContract.Data.MIMETYPE,
-                        ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE)
-                .withValue(ContactsContract.CommonDataKinds.Phone.NUMBER, phone)
-                .withValue(ContactsContract.CommonDataKinds.Phone.TYPE, phoneType)
-                .build());
-        ops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
-                .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
-                .withValue(ContactsContract.Data.MIMETYPE,
-                        ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE)
-                .withValue(ContactsContract.CommonDataKinds.Email.DATA, email)
-                .withValue(ContactsContract.CommonDataKinds.Email.TYPE, emailType)
-                .build());
-
-        // Ask the Contact provider to create a new contact
-        Log.i(TAG,"Selected account: " + mSelectedAccount.getName() + " (" +
-                mSelectedAccount.getType() + ")");
-        Log.i(TAG,"Creating contact: " + name);
-        try {
-            getActivity().getContentResolver().applyBatch(ContactsContract.AUTHORITY, ops);
-        } catch (Exception e) {
-            // Display warning
-            Context ctx = getActivity().getApplicationContext();
-            CharSequence txt = getString(R.string.contactCreationFailure);
-            int duration = Toast.LENGTH_SHORT;
-            Toast toast = Toast.makeText(ctx, txt, duration);
-            toast.show();
-
-            // Log exception
-            Log.e(TAG, "Exceptoin encoutered while inserting contact: " + e);
-        }
-    }
-
-    /**
-     * Called when this activity is about to be destroyed by the system.
-     */
-    @Override
-    public void onDestroy() {
-        // Remove AccountManager callback
-        AccountManager.get(getActivity()).removeOnAccountsUpdatedListener(this);
-        super.onDestroy();
-    }
-
-    /**
-     * Updates account list spinner when the list of Accounts on the system changes. Satisfies
-     * OnAccountsUpdateListener implementation.
-     */
-    public void onAccountsUpdated(Account[] a) {
-        Log.i(TAG, "Account list update detected");
-        // Clear out any old data to prevent duplicates
-        mAccounts.clear();
-
-        // Get account data from system
-        AuthenticatorDescription[] accountTypes = AccountManager.get(getActivity()).getAuthenticatorTypes();
-
-        // Populate tables
-        for (int i = 0; i < a.length; i++) {
-            // The user may have multiple accounts with the same name, so we need to construct a
-            // meaningful display name for each.
-            String systemAccountType = a[i].type;
-            AuthenticatorDescription ad = getAuthenticatorDescription(systemAccountType,
-                    accountTypes);
-            AccountData data = new AccountData(getActivity(), a[i].name, ad);
-            mAccounts.add(data);
-        }
-
-        // Update the account spinner
-        mAccountAdapter.notifyDataSetChanged();
-    }
-
-    /**
-     * Obtain the AuthenticatorDescription for a given account type.
-     * @param type The account type to locate.
-     * @param dictionary An array of AuthenticatorDescriptions, as returned by AccountManager.
-     * @return The description for the specified account type.
-     */
-    private static AuthenticatorDescription getAuthenticatorDescription(String type,
-            AuthenticatorDescription[] dictionary) {
-        for (int i = 0; i < dictionary.length; i++) {
-            if (dictionary[i].type.equals(type)) {
-                return dictionary[i];
-            }
-        }
-        // No match found
-        throw new RuntimeException("Unable to find matching authenticator");
-    }
-
-    /**
-     * Update account selection. If NO_ACCOUNT is selected, then we prohibit inserting new contacts.
-     */
-    private void updateAccountSelection() {
-        // Read current account selection
-        mSelectedAccount = (AccountData) mAccountSpinner.getSelectedItem();
+        // Create new contact and set fields
+        Contact newContact = new Contact();
+        
+        newContact.setName(name);
+        newContact.setPhone(phone);
+        newContact.setEmail(email);
+        newContact.setPhoneType(phoneType);
+        newContact.setEmailType(emailType);
+        
+        // Save to backend
+        AsyncAppData<Contact> myevents = mKinveyClient.appData("contact", Contact.class);
+        myevents.save(newContact, new KinveyClientCallback<Contact>() {
+          @Override
+          public void onFailure(Throwable e) {
+              Log.e(TAG, "failed to save event data", e); 
+          }
+          @Override
+          public void onSuccess(Contact r) {
+              Log.d(TAG, "saved data for entity "+ r.getName()); 
+          }
+        });
     }
 
     /**
      * Custom adapter used to display account icons and descriptions in the account spinner.
      */
-    private class AccountAdapter extends ArrayAdapter<AccountData> {
-        public AccountAdapter(Context context, ArrayList<AccountData> accountData) {
+    private class AccountAdapter extends ArrayAdapter<User> {
+        public AccountAdapter(Context context, ArrayList<User> accountData) {
             super(context, android.R.layout.simple_spinner_item, accountData);
             setDropDownViewResource(R.layout.account_entry);
         }
@@ -300,15 +211,12 @@ public class ContactAdderFragment extends Fragment implements OnAccountsUpdateLi
             TextView firstAccountLine = (TextView) convertView.findViewById(R.id.firstAccountLine);
             TextView secondAccountLine = (TextView) convertView.findViewById(R.id.secondAccountLine);
             ImageView accountIcon = (ImageView) convertView.findViewById(R.id.accountIcon);
-
+            
             // Populate template
-            AccountData data = getItem(position);
-            firstAccountLine.setText(data.getName());
-            secondAccountLine.setText(data.getTypeLabel());
-            Drawable icon = data.getIcon();
-            if (icon == null) {
-                icon = getResources().getDrawable(android.R.drawable.ic_menu_search);
-            }
+            User user = getItem(position);
+            firstAccountLine.setText(user.getId());
+            secondAccountLine.setText(R.string.kinveyUser);
+            Drawable icon = getResources().getDrawable(R.drawable.kinvey);
             accountIcon.setImageDrawable(icon);
             return convertView;
         }

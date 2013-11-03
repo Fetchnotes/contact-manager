@@ -15,23 +15,24 @@ public class ContactManagerApplication extends Application {
 	
 	@Override
 	public void onCreate() {
-		super.onCreate();
+		super.onCreate();		
 		
-		/**
-	     * Creates kinvey client for communication with backend.
-	     */
+	    // Creates kinvey client for communication with backend.
 		mKinveyClient = new Client.Builder(this.getApplicationContext()).build();
 		
-		mKinveyClient.user().login(new KinveyUserCallback() {
-		    @Override
-		    public void onFailure(Throwable error) {
-		        Log.e(TAG, "Login Failure", error);
-		    }
-		    @Override
-		    public void onSuccess(User result) {
-		        Log.i(TAG,"Logged in a new implicit user with id: " + result.getId());
-		    }
-		});
+		// Logs in if user is not already logged in.
+		if (!mKinveyClient.user().isUserLoggedIn()) {
+			mKinveyClient.user().login(new KinveyUserCallback() {
+			    @Override
+			    public void onFailure(Throwable error) {
+			        Log.e(TAG, "Login Failure", error);
+			    }
+			    @Override
+			    public void onSuccess(User result) {
+			        Log.i(TAG,"Logged in a new implicit user with id: " + result.getId());
+			    }
+			});
+		}
 	}
 	
 	public void setsClient(Client myClient) {

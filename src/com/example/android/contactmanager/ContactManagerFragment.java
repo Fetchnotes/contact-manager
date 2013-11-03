@@ -1,20 +1,20 @@
 package com.example.android.contactmanager;
 
-import com.kinvey.android.callback.KinveyPingCallback;
-
+import com.kinvey.android.AsyncAppData;
+import com.kinvey.android.Client;
+import com.kinvey.android.callback.KinveyListCallback;
 import android.content.Intent;
-import android.database.Cursor;
-import android.net.Uri;
 import android.os.Bundle;
-import android.provider.ContactsContract;
 import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemClickListener;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
-import android.widget.SimpleCursorAdapter;
 import android.widget.Toast;
 
 public class ContactManagerFragment extends Fragment {
@@ -23,6 +23,7 @@ public class ContactManagerFragment extends Fragment {
 
     private Button mAddAccountButton;
     private ListView mContactList;
+    private Client mKinveyClient;
 
     /**
      * Called when the fragment is first created. Responsible for initializing the fragment.
@@ -33,6 +34,8 @@ public class ContactManagerFragment extends Fragment {
         Log.v(TAG, "Fragment State: onCreate()");
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
+        
+        mKinveyClient = ((ContactManagerApplication)getActivity().getApplication()).getClient();
     }
     
     /**
@@ -46,73 +49,77 @@ public class ContactManagerFragment extends Fragment {
 		// Obtain handles to UI objects
         mAddAccountButton = (Button) v.findViewById(R.id.addContactButton);
         mContactList = (ListView) v.findViewById(R.id.contactList);
-
+        mContactList.setOnItemClickListener(new OnItemClickListener() {
+			@Override
+			public void onItemClick(AdapterView<?> adapter, View v, int position, long id) {
+				contactClicked((Contact)adapter.getItemAtPosition(position));
+			}
+		});
 
         // Register handler for UI elements
         mAddAccountButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 Log.d(TAG, "mAddAccountButton clicked");
-                
-                ((ContactManagerApplication)getActivity().getApplication()).getClient()
-                		.ping(new KinveyPingCallback() {
-                    public void onFailure(Throwable t) {
-                        Toast.makeText(getActivity(), "Kinvey Ping Failed", Toast.LENGTH_LONG).show();
-                    }
-                    public void onSuccess(Boolean b) {
-                    	Toast.makeText(getActivity(), "Kinvey Ping Success", Toast.LENGTH_LONG).show();
-                    }
-                });
-                
                 launchContactAdder();
             }
         });
-
-        // Populate the contact list
-        populateContactList();
 		
 		return v;
+	}
+
+    /**
+     * Re-populates the contact list when the fragment resumes.
+     */
+	@Override
+	public void onResume() {
+		super.onResume();
+		
+		// Populate the contact list
+        populateContactList();
 	}
 
 	/**
      * Populate the contact list based on account currently selected in the account spinner.
      */
     private void populateContactList() {
-        // Build adapter with contact entries
-        Cursor cursor = getContacts();
-        String[] fields = new String[] {
-                ContactsContract.Data.DISPLAY_NAME
-        };
-        SimpleCursorAdapter adapter = new SimpleCursorAdapter(getActivity(), R.layout.contact_entry, cursor,
-                fields, new int[] {R.id.contactEntryText});
-        mContactList.setAdapter(adapter);
+    	mContactList.setAdapter(null);
+        // Build adapter with contact entries from kinvey search
+    	AsyncAppData<Contact> myevents = mKinveyClient.appData("contact", Contact.class);
+    	myevents.get(new KinveyListCallback<Contact>()     {
+    	  @Override
+    	  public void onSuccess(Contact[] results) { 
+    	    Log.v(TAG, "received "+ results.length + " events");
+    	    
+    	    // Create array adapter with results and set list adapter
+    	    ArrayAdapter<Contact> adapter = new ArrayAdapter<Contact>(getActivity(), 
+    	    		android.R.layout.simple_list_item_1, results);
+            mContactList.setAdapter(adapter);
+    	  }
+    	  @Override
+    	  public void onFailure(Throwable error)  { 
+    	    Log.e(TAG, "failed to fetch all", error);
+    	  }
+    	});
     }
 
     /**
-     * Obtains the contact list for the currently selected account.
-     *
-     * @return A cursor for for accessing the contact list.
-     */
-    private Cursor getContacts()
-    {
-        // Run query
-        Uri uri = ContactsContract.Contacts.CONTENT_URI;
-        String[] projection = new String[] {
-                ContactsContract.Contacts._ID,
-                ContactsContract.Contacts.DISPLAY_NAME
-        };
-        String selection = ContactsContract.Contacts.IN_VISIBLE_GROUP + " = '1'";
-        String[] selectionArgs = null;
-        String sortOrder = ContactsContract.Contacts.DISPLAY_NAME + " COLLATE LOCALIZED ASC";
-
-        return getActivity().managedQuery(uri, projection, selection, selectionArgs, sortOrder);
-    }
-
-    /**
-     * Launches the ContactAdder activity to add a new contact to the selected accont.
+     * Launches the ContactAdder activity to add a new contact to the selected account.
      */
     protected void launchContactAdder() {
         Intent i = new Intent(getActivity(), ContactAdder.class);
         startActivity(i);
+    }
+    
+    /**
+     * Creates a toast showing information about the contact that was clicked.
+     */
+    private void contactClicked(Contact contactClicked) {
+    	String toastString = getResources().getString(R.string.contactClicked, 
+				contactClicked.getName(), 
+				contactClicked.getPhone(), 
+				contactClicked.getEmail());
+		
+		Toast.makeText(getActivity(), toastString, Toast.LENGTH_LONG).show();	
     }
 
 }

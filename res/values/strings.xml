@@ -30,4 +30,7 @@
     <string name="showInvisible">Show Invisible Contacts (Only)</string>
     <string name="targetAccountLabel">Target Account</string>
     <string name="undefinedTypeLabel">(Undefined)</string>
+    <string name="kinveyUser">Kinvey User</string>
+    <string name="accountEntryIconDescription">Kinvey Icon</string>
+    <string name="contactClicked" formatted="false">Contact %s clicked!\n\tPhone: %s\n\tEmail: %s</string>
 </resources>
