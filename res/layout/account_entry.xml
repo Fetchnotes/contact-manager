@@ -24,7 +24,8 @@
         android:layout_height="fill_parent"
         android:layout_alignParentTop="true"
         android:layout_alignParentBottom="true"
-        android:layout_marginRight="6dip" />
+        android:layout_marginRight="24dip"
+        android:contentDescription="@string/accountEntryIconDescription" />
     <TextView
         android:id="@+id/secondAccountLine"
         android:layout_width="fill_parent"
